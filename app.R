@@ -1,3 +1,5 @@
+
+#install.packages(c("shiny","shinydashboard", "shinyjs", "shinyBS", "RSQLite", "DT", "ggplot", "scales"))
 library(shiny)
 library(shinydashboard)
 library(shinyjs)
@@ -6,12 +8,13 @@ library(RSQLite)
 library(DT)
 library(ggplot2)
 library(scales)
+library(lubridate)
 
 # Print current working directory
 print(getwd())
 
 # Path to sqlite database
-sqlitePath <- "test.db"
+sqlitePath <- "spinnerei183.db"
 # Name of the sqlite table
 sqlitetable <- "in_out"
 
@@ -31,23 +34,23 @@ createDatabase <- function() {
   dbDisconnect(db) 
 }
 
-generateRandomData <- function(number) {
-  for (i in 1:number) {
-    Bewohner <-
-      c("Chris", "Sophie", "Jo", "Julia", "Miri")[sample(1:5, 1, replace = T)]
-    Datum <- format(Sys.time(), "%Y.%m.%d %H:%M:%S")
-    Wert <- sample(1:100, 1, replace = T)
-    Kategorie <-
-      c("Essen",
-        "Fahrtkosten",
-        "Kueche",
-        "Party",
-        "Spende",
-        "Materialien")[sample(1:6, 1, replace = T)]
-    entry <- c(Datum, Bewohner, "Ausgabe", Kategorie, Wert, TRUE)
-    saveData(entry)
-  }
-}
+# generateRandomData <- function(number) {
+#   for (i in 1:number) {
+#     Bewohner <-
+#       c("Chris", "Sophie", "Jo", "Julia", "Miri")[sample(1:5, 1, replace = T)]
+#     Datum <- format(Sys.time(), "%Y.%m.%d %H:%M:%S")
+#     Wert <- sample(1:100, 1, replace = T)
+#     Kategorie <-
+#       c("Essen",
+#         "Fahrtkosten",
+#         "Kueche",
+#         "Party",
+#         "Spende",
+#         "Materialien")[sample(1:6, 1, replace = T)]
+#     entry <- c(Datum, Bewohner, "Ausgabe", Kategorie, Wert, TRUE)
+#     saveData(entry)
+#   }
+# }
 
 # Function for inserting, updating, deleting data in sqlite database
 saveData <- function(data, type="insert") {
@@ -117,7 +120,7 @@ EmptyInputs <- function(session) {
   updateSelectInput(session, inputId = "name", selected = "Bitte waehlen")
   updateSelectInput(session, inputId = "in_out", selected = "Bitte waehlen")
   updateSelectInput(session, inputId = "category", selected = "Bitte waehlen")
-  updateDateInput(session, inputId = "billdate", value = NA)
+  updateDateInput(session, inputId = "billdate", value = NULL)
   updateNumericInput(session, inputId = "value", value = 0)
   updateTextInput(session, inputId = "comment", value = "")
 }
@@ -128,13 +131,14 @@ EmptyInputs <- function(session) {
 ui = shinyUI(dashboardPage(
   skin = "green",
   
-  dashboardHeader(title = "WG Name"),
+  dashboardHeader(title = "Spinnerei183"),
   
   dashboardSidebar(sidebarMenu(
     menuItem("Eingabe", tabName = "eingabe", icon = icon("edit")),
     menuItem("Tabelle", tabName = "tabelle", icon = icon("table")),
-    menuItem("Diagramme", tabName = "ausgabe", icon = icon("line-chart"), badgeLabel = "new"),
-    menuItem("ZÃ¤hlerstÃ¤nde", tabName = "zaehler", badgeLabel = "new")
+    menuItem("Diagramme", tabName = "ausgabe", icon = icon("line-chart")),
+    menuItem("Miete", tabName = "miete", icon = icon("line-chart"))
+   # menuItem("Zählerstände", tabName = "zaehler")
   )),
   
   dashboardBody(
@@ -146,19 +150,32 @@ ui = shinyUI(dashboardPage(
         fluidRow(
           selectizeInput("name", label = "Name", choices = c(
                                                           "Bitte waehlen",
-                                                          "Name1",
-                                                          "Name2",
-                                                          "Name3",
-                                                          "Name4",
-                                                          "Name5",
-                                                          "Name6",
-                                                          "Name7",
-                                                          "Name8",
-                                                          "Name9",
-                                                          "Name10"
+                                                          "Janosch",
+                                                          "Emely",
+                                                          "Raphael",
+                                                          "Tizian",
+                                                          "MC",
+                                                          "DJ",
+                                                          "Chris",
+                                                          "Eve",
+                                                          "Samu",
+                                                          "Random"
                                                           )
-          ),
+                         ),
           
+          
+                    
+        #  conditionalPanel(
+        #   condition = "input.name != 'Bitte waehlen'",
+        #   #textInput("comment", "Kommentar", NULL),
+        #   # here you have the possibility to insert a checkboxinput for setting value "Beglichen" immediately
+        #   #checkboxInput("done", "Beglichen", FALSE),
+        #   helpText("XX hat die Miete von letztem/diesen Monat gezahlt"),
+        #   actionButton("rent_this_month", "Miete diesen/letzten Monat", icon = icon("send"))
+        # ),
+     
+
+          #in_out
           conditionalPanel(
             condition = "input.name != 'Bitte waehlen'",
             selectInput(
@@ -167,7 +184,7 @@ ui = shinyUI(dashboardPage(
               choices = c("Bitte waehlen", "Einnahme", "Ausgabe")
             )
           ),
-          
+
           # choose category of transaction
           conditionalPanel(
             condition = "input.name != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.in_out != 'Bitte waehlen'",
@@ -180,19 +197,30 @@ ui = shinyUI(dashboardPage(
                           "Miete")
             )
           ),
-          
+
           conditionalPanel(
-            condition = "input.name != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.category != 'Bitte waehlen'",
+            condition = "input.name != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.category != 'Bitte waehlen' && input.category == 'Miete'",
+            dateInput("billdate", "Datum der Miete / Rechnung", value=NULL, format = "MM", language = "de")
+          ),
+
+           conditionalPanel(
+            condition = "input.name != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.category != 'Bitte waehlen' && input.category != 'Miete'",
             dateInput("billdate", "Datum der Miete / Rechnung", value = 0, format = "yyyy-mm-dd", language = "de")
           ),
-          
+
+
           conditionalPanel(
-            condition = "input.name != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.category != 'Bitte waehlen' && input.billdate != 0",
+            condition = "input.name != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.category != 'Bitte waehlen' && input.billdate != 0 && input.category != 'Miete'",
             numericInput("value", "Geldbetrag", value = 0)
           ),
-          
+ 
+            conditionalPanel(
+            condition = "input.name != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.category != 'Bitte waehlen' && input.billdate != 0 && input.category == 'Miete'",
+            numericInput("value", "Geldbetrag", value = 350)
+          ),
+
           conditionalPanel(
-            condition = "input.name != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.in_out != 'Bitte waehlen' && input.category != 'Bitte waehlen' && input.billdate != 0 && input.value != 0",
+            condition = "input.name != 'Bitte waehlen'  && input.in_out != 'Bitte waehlen' && input.category != 'Bitte waehlen' && input.billdate != 0",
             textInput("comment", "Kommentar", NULL),
             # here you have the possibility to insert a checkboxinput for setting value "Beglichen" immediately
             #checkboxInput("done", "Beglichen", FALSE),
@@ -204,19 +232,19 @@ ui = shinyUI(dashboardPage(
         # dialog forcing user to check the input values (triggered by clicking on submit)
         bsModal(
           id = "confirm",
-          title = "In Datenbank Ã¼bernehmen?",
+          title = "In Datenbank übernehmen?",
           trigger = "submit",
           #size = "small",
-          HTML("Bitte Ã¼berprÃ¼fe nochmal deine Eingabe!<br>MÃ¶chtest du den neuen Eintrag zur Datenbank hinzufÃ¼gen?
+          HTML("Bitte überprüfe nochmal deine Eingabe!<br>Möchtest du den neuen Eintrag zur Datenbank hinzufügen?
                <br>Danke.<br>
                "),
           actionButton("BUTyes", "Jaaaa!")
           )
-        
+
+
         )
       ),
-      
-      
+
       
       ############# TABLE TAB #############################
       tabItem(
@@ -226,7 +254,7 @@ ui = shinyUI(dashboardPage(
         fluidRow(DT::dataTableOutput("responses")),
         
         # create a collapsed box beneath datatable view for editing the table
-        box(title = "Ã„nderungen in der Tabelle vornehmen", status = "primary", solidHeader = T, collapsible = T, collapsed = T,
+        box(title = "Änderungen in der Tabelle vornehmen", status = "primary", solidHeader = T, collapsible = T, collapsed = T,
           fluidRow(
                   column(2,
                          shinyjs::disabled(textInput(inputId = "id_tab", "lfdNr", ""))
@@ -241,8 +269,8 @@ ui = shinyUI(dashboardPage(
                          shinyjs::disabled(textInput(inputId = "value_tab", "Wert", ""))
                   ),
                     checkboxInput(inputId = "done_tab", "Beglichen"),
-                    actionButton("update", "Ã„nderung Ã¼bernehmen", icon = icon("send")), # Was for submitting the change in checkbox input... maybe possible submitting while clicking the checkbox
-                    actionButton("delete", "Zeile lÃ¶schen (!!!)", icon = icon("trash"))
+                    actionButton("update", "Änderung übernehmen", icon = icon("send")), # Was for submitting the change in checkbox input... maybe possible submitting while clicking the checkbox
+                    actionButton("delete", "Zeile löschen (!!!)", icon = icon("trash"))
                   )
           )
         
@@ -259,11 +287,21 @@ ui = shinyUI(dashboardPage(
                 )
               ),
       
-      ################ ZÃ„HLERSTÃ„NDE TAB ############
-      tabItem(tabName = "zaehler",
+      ################ ZÄHLERSTÄNDE TAB ############
+     # tabItem(tabName = "zaehler",
+        #      fluidRow(
+         #       h2("Zählerstände")
+          #    ))
+      
+      
+         tabItem(tabName = "miete",
               fluidRow(
-                h2("ZÃ¤hlerstÃ¤nde")
-              ))
+                h2("Miete"),
+                plotOutput("plotmiete")
+              )
+             )
+         
+         
     ))
   ))
 
@@ -275,13 +313,13 @@ server <- function(input, output, session) {
   # Update selectInput "category" after choosing selectInput "in_out"
   observeEvent(input$in_out, {
     if (input$in_out == "Ausgabe"){
-      updateSelectInput(session, "category", choices = list(c("Bitte waehlen"), "Allgemein" = c("Essen", "Verbrauchsmaterialien", "Fahrtkosten"), "Verwaltung" = c("Miete", "Rueckbaukonto", "KontofÃ¼hrungsgebÃ¼hr", "Party", "Baumaterialien", "Ãœberweisung Foodcoop", "Brennholz", "GEZ", "Strom", "Wasser", "Internet & Telefon", "Gas")))
+      updateSelectInput(session, "category", choices = list(c("Bitte waehlen"), "Allgemein" = c("Essen", "Verbrauchsmaterialien", "Fahrtkosten"), "Verwaltung" = c("Miete", "Rueckbaukonto", "Kontoführungsgebühr", "Party", "Baumaterialien", "Überweisung Foodcoop", "Brennholz", "GEZ", "Strom", "Wasser", "Internet & Telefon", "Gas")))
     } else {updateSelectInput(session, "category", choices = c("Bitte waehlen", "Party", "Spende", "Miete"))}
   })
   
   # Update selectInput "category" after choosing selectInput "in_out"
   observeEvent(input$category, {
-    if (input$category == "Miete") {updateDateInput(session, "billdate", label = "Miete fÃ¼r Monat?")} else {
+    if (input$category == "Miete") {updateDateInput(session, "billdate", label = "Miete für Monat?")} else {
       updateDateInput(session, "billdate", label = "Rechnungsdatum")
     }
   })
@@ -361,7 +399,7 @@ server <- function(input, output, session) {
     # Prepare Dates for only showning Month in Plot
     responses$newdate <- cut(as.Date(responses[["billdate"]], "%Y.%m.%d"), breaks = "month")
     # Create plot for "Essen" only
-    ggplot(responses[responses$Kategorie == c("Essen", "Ãœberweisung Foodcoop"), ], aes(newdate, Wert, group = Kategorie, colour = Kategorie, fill = Kategorie)) + stat_summary(fun.y = sum, geom = "bar") + geom_bar(stat="identity") + xlab("Monat")# + scale_x_date(labels = date_format("%Y-%m"),breaks = "1 month")
+    ggplot(responses[responses$Kategorie == c("Essen", "Überweisung Foodcoop"), ], aes(newdate, Wert, group = Kategorie, colour = Kategorie, fill = Kategorie)) + stat_summary(fun.y = sum, geom = "bar") + geom_bar(stat="identity") + xlab("Monat")# + scale_x_date(labels = date_format("%Y-%m"),breaks = "1 month")
   })
   
   # Create Plot2
@@ -394,6 +432,32 @@ server <- function(input, output, session) {
       stat_summary(fun.y = sum, geom = "bar") +
       geom_bar(stat="identity") +
       xlab("Monat")
+  })
+  
+   # Create plotmiete
+  
+  
+  output$plotmiete <- renderPlot({
+    # input that causes plot to renew (can be a button or else)
+    input$submit
+    input$delete
+    input$update
+    responses <- loadData()
+    # Prepare Dates for only showning Month in Plot
+    print(responses)
+    responses$name <- responses[["Bewohner"]]
+    responses$newdate <- cut(as.Date(responses[["billdate"]], "%Y.%m.%d"), breaks = "month")
+    
+    responses$yr_mt = paste0(year(responses$newdate), "-", month(responses$newdate))
+      
+      #
+    # Create plot for all Ausgaben
+    ggplot(responses[responses$EinAus == "Einnahme", ], aes(name, Wert, group = name, fill = yr_mt)) +
+      stat_summary(fun.y = sum, geom = "bar") +
+      geom_bar(stat="identity") +
+      scale_fill_discrete("Month")+
+      xlab("peoples")+
+      ylab("sum")
   })
   
 }
