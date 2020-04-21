@@ -1,4 +1,8 @@
 # WGOrganizer
+
+This is just the copy of the Original Poster. Visit https://github.com/gitcris/WGOrganizer
+For the original repo.
+
 This Shiny R Server App helps you with organizing financial structure of a community.
 
 ## Userinput
